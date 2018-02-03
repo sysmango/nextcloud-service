@@ -53,7 +53,7 @@
     login_host: postgres
     login_password: dbadmin
     user: nextcloud
-    password: 'str[\"md5\"] + md5[ nextcloudadmin + nextcloud ]'
+    password: 'str[\"md5\"] + md5[ nextadmin + nextcloud ]'
     encrypted: "yes"
     state: present
   when: nextcloud_status.rc == 1
@@ -79,8 +79,8 @@
     --mount type=bind,src=/srv/docker-volumes/nextcloud/custom_apps,dst=/var/wwww/html/custom_apps \
     -e POSTGRES_DB=nextcloud \
     -e POSTGRES_USER=nextcloud
-    -e POSTGRES_PASSWORD=nextcloudadmin \
-    -e POSTGRES_HOST=postgres \
+    -e POSTGRES_PASSWORD=nextadmin \
+    -e POSTGRES_HOST=postgres:5432 \
     -e NEXTCLOUD_ADMIN_USER=sysmango \
     -e NEXTCLOUD_ADMIN_PASSWORD=Atr0c1ty! \
     -e NEXTCLOUD_REDIS_ENABLED=true \
