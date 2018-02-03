@@ -16,7 +16,7 @@
     mode: 0777
   any_errors_fatal: true
   when: nextcloud_status.rc == 1
-
+  
 - name: Create nextcloud volume data directory
   hosts: nfs-server[0]
   become: "yes"
@@ -27,7 +27,7 @@
   any_errors_fatal: true
   when: nextcloud_status.rc == 1
   
-  - name: Create nextcloud volume data directory
+- name: Create nextcloud volume data directory
   hosts: nfs-server[0]
   become: "yes"
   file:
