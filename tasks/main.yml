@@ -21,21 +21,31 @@
   hosts: nfs-server[0]
   become: "yes"
   file:
+    path: /srv/nfs/nextcloud/config
+    state: directory
+    mode: 0777
+  any_errors_fatal: true
+  when: nextcloud_status.rc == 1
+  
+  - name: Create nextcloud volume data directory
+  hosts: nfs-server[0]
+  become: "yes"
+  file:
     path: /srv/nfs/nextcloud/data
     state: directory
     mode: 0777
   any_errors_fatal: true
   when: nextcloud_status.rc == 1
 
-# - name: Create nextcloud volume config directory
-#   hosts: nfs-server[0]
-#   become: "yes"
-#   file:
-#     path: /srv/nfs/nextcloud/config
-#     state: directory
-#     mode: 0777
-#   any_errors_fatal: true
-#   when: nextcloud_status.rc == 1
+- name: Create nextcloud volume data directory
+  hosts: nfs-server[0]
+  become: "yes"
+  file:
+    path: /srv/nfs/nextcloud/custom_apps
+    state: directory
+    mode: 0777
+  any_errors_fatal: true
+  when: nextcloud_status.rc == 1
 
 - name: Create nextcloud db user
   connection: local
@@ -64,13 +74,14 @@
     docker service create -d --name nextcloud \
     --network mangonet \
     --publish 8082:80 \
-    --mount type=bind,src=/srv/docker-volumes/nextcloud/data,dst=/mnt/data \
-    -e NEXTCLOUD_DOMAIN=sysmango.net\
-    -e NEXTCLOUD_DB_TYPE=pgsql \
-    -e NEXTCLOUD_DB_USERNAME=nextcloud \
-    -e NEXTCLOUD_DB_PASSWORD=nextcloudadmin \
-    -e NEXTCLOUD_DB_HOST=postgres \
-    -e NEXTCLOUD_ADMIN_USERNAME=sysmango \
+    --mount type=bind,src=/srv/docker-volumes/nextcloud/config,dst=/var/wwww/html/config \
+    --mount type=bind,src=/srv/docker-volumes/nextcloud/data,dst=/var/wwww/html/data \
+    --mount type=bind,src=/srv/docker-volumes/nextcloud/custom_apps,dst=/var/wwww/html/custom_apps \
+    -e POSTGRES_DB=nextcloud \
+    -e POSTGRES_USER=nextcloud
+    -e POSTGRES_PASSWORD=nextcloudadmin \
+    -e POSTGRES_HOST=postgres \
+    -e NEXTCLOUD_ADMIN_USER=sysmango \
     -e NEXTCLOUD_ADMIN_PASSWORD=Atr0c1ty! \
     -e NEXTCLOUD_REDIS_ENABLED=true \
     -e NEXTCLOUD_REDIS_HOST=redis \
