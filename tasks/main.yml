@@ -73,7 +73,8 @@
   command: | 
     docker service create -d --name nextcloud \
     --network mangonet \
-    --publish 8082:80 \
+    --network traefik-net \
+    --label treafik.port=80 \
     --mount type=bind,src=/srv/docker-volumes/nextcloud/config,dst=/var/wwww/html/config \
     --mount type=bind,src=/srv/docker-volumes/nextcloud/data,dst=/var/wwww/html/data \
     --mount type=bind,src=/srv/docker-volumes/nextcloud/custom_apps,dst=/var/wwww/html/custom_apps \
@@ -89,6 +90,8 @@
     nextcloud:latest  
   run_once: true
   when: nextcloud_status.rc == 1
+
+#    --publish 8082:80 \
 
 - name: Register nextcloud name with Route53
   connection: local
