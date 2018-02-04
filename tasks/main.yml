@@ -53,7 +53,7 @@
     login_host: postgres
     login_password: dbadmin
     user: nextcloud
-    password: 'str[\"md5\"] + md5[ nextadmin + nextcloud ]'
+    password: 'nextadmin'
     encrypted: "yes"
     state: present
   when: nextcloud_status.rc == 1
@@ -73,7 +73,7 @@
   command: | 
     docker service create -d --name nextcloud \
     --network mangonet \
-    --label treafik.port=80 \
+    --label traefik.port=80 \
     --mount type=bind,src=/srv/docker-volumes/nextcloud/config,dst=/var/wwww/html/config \
     --mount type=bind,src=/srv/docker-volumes/nextcloud/data,dst=/var/wwww/html/data \
     --mount type=bind,src=/srv/docker-volumes/nextcloud/custom_apps,dst=/var/wwww/html/custom_apps \
