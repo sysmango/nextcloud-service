@@ -89,7 +89,7 @@
     --mount type=bind,src=/srv/docker-volumes/nextcloud/data,dst=/var/wwww/html/data \
     --mount type=bind,src=/srv/docker-volumes/nextcloud/custom_apps,dst=/var/wwww/html/custom_apps \
     -e POSTGRES_DB=nextcloud \
-    -e POSTGRES_USER=nextcloud
+    -e POSTGRES_USER=nextcloud \
     -e POSTGRES_PASSWORD=nextadmin \
     -e POSTGRES_HOST=postgres:5432 \
     -e NEXTCLOUD_ADMIN_USER=sysmango \
