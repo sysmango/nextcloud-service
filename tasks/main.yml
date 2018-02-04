@@ -73,7 +73,6 @@
   command: | 
     docker service create -d --name nextcloud \
     --network mangonet \
-    --network traefik-net \
     --label treafik.port=80 \
     --mount type=bind,src=/srv/docker-volumes/nextcloud/config,dst=/var/wwww/html/config \
     --mount type=bind,src=/srv/docker-volumes/nextcloud/data,dst=/var/wwww/html/data \
