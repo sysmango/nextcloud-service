@@ -13,7 +13,7 @@
   file:
     path: /srv/nfs/nextcloud
     state: directory
-    mode: 0770
+    mode: 0777
   any_errors_fatal: true
   when: nextcloud_status.rc == 1
 
@@ -23,7 +23,7 @@
   file:
     path: /srv/nfs/nextcloud/html
     state: directory
-    mode: 0770
+    mode: 0777
   any_errors_fatal: true
   when: nextcloud_status.rc == 1
 
@@ -33,7 +33,7 @@
   file:
     path: /srv/nfs/nextcloud/config
     state: directory
-    mode: 0770
+    mode: 0777
   any_errors_fatal: true
   when: nextcloud_status.rc == 1
   
@@ -43,7 +43,7 @@
   file:
     path: /srv/nfs/nextcloud/data
     state: directory
-    mode: 0770
+    mode: 0777
   any_errors_fatal: true
   when: nextcloud_status.rc == 1
 
@@ -53,7 +53,7 @@
   file:
     path: /srv/nfs/nextcloud/custom_apps
     state: directory
-    mode: 0770
+    mode: 0777
   any_errors_fatal: true
   when: nextcloud_status.rc == 1
 
