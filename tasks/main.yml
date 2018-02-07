@@ -17,7 +17,7 @@
   any_errors_fatal: true
   when: nextcloud_status.rc == 1
 
-- name: Create nextcloud volume http directory
+- name: Create nextcloud volume html directory
   hosts: nfs-server[0]
   become: "yes"
   file:
@@ -82,7 +82,8 @@
   hosts: docker-manager[0]
   docker_container: 
     name: nextcloud 
-    network: mangonet 
+    networks: 
+    - mangonet 
     labels: 
     - traefik.port=80
     volumes:
