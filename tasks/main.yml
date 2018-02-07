@@ -85,7 +85,7 @@
     networks: 
     - mangonet 
     labels: 
-    - traefik.port=80
+      traefik.port: 80
     volumes:
     - /srv/docker-volumes/nextcloud/html:/var/wwww/html
     - /srv/docker-volumes/nextcloud/config:/var/wwww/html/config
