@@ -80,7 +80,7 @@
 
 - name: Deploy nextcloud service
   hosts: docker-manager[0]
-  comand: |
+  command: |
     docker run -d --name nextcloud \
     --network mangonet \
     --label traefik.port=80 \
@@ -99,7 +99,7 @@
   run_once: true
   when: nextcloud_status.rc == 1
 
-  # comand: | 
+  # command: | 
   #   domcker service create -d --name nextcloud \
   #   --network mangonet \
   #   --label traefik.port=80 \
