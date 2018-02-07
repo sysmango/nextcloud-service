@@ -80,18 +80,16 @@
 
 - name: Deploy nextcloud service
   hosts: docker-manager[0]
-  docker_container: 
-    name: nextcloud
-    networks: 
-    - mangonet 
-    labels: 
-      traefik.port: 80
-    volumes:
-    - /srv/docker-volumes/nextcloud/html:/var/wwww/html
-    - /srv/docker-volumes/nextcloud/config:/var/wwww/html/config
-    - /srv/docker-volumes/nextcloud/data:/var/wwww/html/data
-    - /srv/docker-volumes/nextcloud/custom_apps:/var/wwww/html/custom_apps
-    image: registry.sysmango.net/nextcloud:latest  
+  comand: | 
+    domcker run -d --name nextcloud \
+    --network mangonet \
+    --label traefik.port=80 \
+    -v /srv/docker-volumes/nextcloud/html:/var/wwww/html \
+    -v/srv/docker-volumes/nextcloud/config:/var/wwww/html/config \
+    -v /srv/docker-volumes/nextcloud/data:/var/wwww/html/data \
+    -v /srv/docker-volumes/nextcloud/custom_apps:/var/wwww/html/custom_apps \
+    --replicas 1 \
+    registry.sysmango.net/nextcloud:latest  
   run_once: true
   when: nextcloud_status.rc == 1
 
