@@ -85,6 +85,9 @@
     --network mangonet \
     --label traefik.port=80 \
     --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/html,volume-opt=type=nfs,target=/var/www/html'
+    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/config,volume-opt=type=nfs,target=/var/www/html/config'
+    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/data,volume-opt=type=nfs,target=/var/www/html/data'
+    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/custom_apps,volume-opt=type=nfs,target=/var/www/custom_apps'
     --replicas 1 \
     -e POSTGRES_DB=nextcloud \
     -e POSTGRES_USER=nextcloud \
