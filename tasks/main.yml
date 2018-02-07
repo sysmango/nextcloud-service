@@ -81,7 +81,8 @@
 - name: Deploy nextcloud service
   hosts: docker-manager[0]
   docker_container: 
-    name: nextcloud 
+    name: nextcloud
+    docker_host: tcp://grid011.sysmango.net:2375 
     networks: 
     - mangonet 
     labels: 
