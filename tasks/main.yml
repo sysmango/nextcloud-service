@@ -84,10 +84,7 @@
     docker service create -d --name nextcloud \
     --network mangonet \
     --label traefik.port=80 \
-    --mount type=bind,src=/srv/docker-volumes/nextcloud/html,dst=/var/wwww/html \
-    --mount type=bind,src=/srv/docker-volumes/nextcloud/config,dst=/var/wwww/html/config \
-    --mount type=bind,src=/srv/docker-volumes/nextcloud/data,dst=/var/wwww/html/data \
-    --mount type=bind,src=/srv/docker-volumes/nextcloud/custom_apps,dst=/var/wwww/html/custom_apps \
+    --mount 'type=volume,src=test,volume-driver=local,dst=/var/www/html,volume-opt=type=nfs,volume-opt=device=:/srv/nfs/docker-volumes/nextcloud/html,volume-opt=o=addr=grid011.sysmango.net,rw'
     --replicas 1 \
     -e POSTGRES_DB=nextcloud \
     -e POSTGRES_USER=nextcloud \
