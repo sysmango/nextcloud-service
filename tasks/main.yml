@@ -80,18 +80,30 @@
 
 - name: Deploy nextcloud service
   hosts: docker-manager[0]
-  command: | 
-    docker service create -d --name nextcloud \
-    --network mangonet \
-    --label traefik.port=80 \
-    --mount type=bind,src=/srv/docker-volumes/nextcloud/html,dst=/var/wwww/html \
-    --mount type=bind,src=/srv/docker-volumes/nextcloud/config,dst=/var/wwww/html/config \
-    --mount type=bind,src=/srv/docker-volumes/nextcloud/data,dst=/var/wwww/html/data \
-    --mount type=bind,src=/srv/docker-volumes/nextcloud/custom_apps,dst=/var/wwww/html/custom_apps \
-    --replicas 1 \
-    registry.sysmango.net/nextcloud:latest  
+  docker_container: 
+    name: nextcloud 
+    network: mangonet 
+    labels: 
+    - traefik.port=80
+    volumes:
+    - /srv/docker-volumes/nextcloud/html:/var/wwww/html
+    - /srv/docker-volumes/nextcloud/config:/var/wwww/html/config
+    - /srv/docker-volumes/nextcloud/data:/var/wwww/html/data
+    - /srv/docker-volumes/nextcloud/custom_apps:/var/wwww/html/custom_apps
+    image: registry.sysmango.net/nextcloud:latest  
   run_once: true
   when: nextcloud_status.rc == 1
+
+  # comand: | 
+  #   domcker service create -d --name nextcloud \
+  #   --network mangonet \
+  #   --label traefik.port=80 \
+  #   --mount type=bind,src=/srv/docker-volumes/nextcloud/html,dst=/var/wwww/html \
+  #   --mount type=bind,src=/srv/docker-volumes/nextcloud/config,dst=/var/wwww/html/config \
+  #   --mount type=bind,src=/srv/docker-volumes/nextcloud/data,dst=/var/wwww/html/data \
+  #   --mount type=bind,src=/srv/docker-volumes/nextcloud/custom_apps,dst=/var/wwww/html/custom_apps \
+  #   --replicas 1 \
+  #   registry.sysmango.net/nextcloud:latest  
 
 #    --publish 8082:80 \
 #    -e POSTGRES_DB=nextcloud \
