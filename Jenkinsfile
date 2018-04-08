@@ -44,13 +44,13 @@ pipeline {
             // currently on searching root if want to search all files use **/*.yml
             def filesToProcess = findFiles(glob: '*.yml')
                //sh "echo grep hosts ${fileToProcess}"
-               sh "grep hosts ${fileToProcess}"
+               //sh "grep hosts ${fileToProcess}"
              }
            }
          }
       }
   }
-  for (def fileToProcess : filesToProcess) {
+//  for (def fileToProcess : filesToProcess) {
   post {
     unstable {
         echo 'Todo send a message to slack when pipeline is unstable!'
@@ -82,4 +82,4 @@ pipeline {
         echo 'Thank you I have been your Jenkins pipeline today, as a worker in the service industry any and all gratuities are welcome!'
     }
 }
-}
+//}
