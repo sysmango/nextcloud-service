@@ -5,7 +5,7 @@
   changed_when: nextcloud_status.rc == 1
   ignore_errors: true
   failed_when: nextcloud_status.rc == 2
-  register: nextcloud_status 
+  register: nextcloud_status
 
 - name: Create nextcloud volume root directory
   hosts: nfs-server[0]
@@ -36,7 +36,7 @@
     mode: 0777
   any_errors_fatal: true
   when: nextcloud_status.rc == 1
-  
+
 - name: Create nextcloud volume data directory
   hosts: nfs-server[0]
   become: "yes"
@@ -59,7 +59,7 @@
 
 - name: Create nextcloud db user
   connection: local
-  postgresql_user: 
+  postgresql_user:
     login_host: postgres
     login_password: dbadmin
     user: nextcloud
@@ -84,10 +84,10 @@
     docker service create -d --name nextcloud \
     --network mangonet \
     --label traefik.port=80 \
-    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/html,volume-opt=type=nfs,target=/var/www/html'
-    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/config,volume-opt=type=nfs,target=/var/www/html/config'
-    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/data,volume-opt=type=nfs,target=/var/www/html/data'
-    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/custom_apps,volume-opt=type=nfs,target=/var/www/custom_apps'
+    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/html,volume-opt=type=nfs,target=/var/www/html' \
+    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/config,volume-opt=type=nfs,target=/var/www/html/config' \
+    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/data,volume-opt=type=nfs,target=/var/www/html/data' \
+    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/custom_apps,volume-opt=type=nfs,target=/var/www/custom_apps' \
     --replicas 1 \
     -e POSTGRES_DB=nextcloud \
     -e POSTGRES_USER=nextcloud \
@@ -98,25 +98,6 @@
     registry.sysmango.net/nextcloud:latest
   run_once: true
   when: nextcloud_status.rc == 1
-
-  # command: | 
-  #   domcker service create -d --name nextcloud \
-  #   --network mangonet \
-  #   --label traefik.port=80 \
-  #   --mount type=bind,src=/srv/docker-volumes/nextcloud/html,dst=/var/wwww/html \
-  #   --mount type=bind,src=/srv/docker-volumes/nextcloud/config,dst=/var/wwww/html/config \
-  #   --mount type=bind,src=/srv/docker-volumes/nextcloud/data,dst=/var/wwww/html/data \
-  #   --mount type=bind,src=/srv/docker-volumes/nextcloud/custom_apps,dst=/var/wwww/html/custom_apps \
-  #   --replicas 1 \
-  #   registry.sysmango.net/nextcloud:latest  
-
-#    --publish 8082:80 \
-#    -e POSTGRES_DB=nextcloud \
-#    -e POSTGRES_USER=nextcloud \
-#    -e POSTGRES_PASSWORD=nextadmin \
-#    -e POSTGRES_HOST=postgres:5432 \
-#    -e NEXTCLOUD_ADMIN_USER=sysmango \
-#    -e NEXTCLOUD_ADMIN_PASSWORD='Atr0c1ty!' \
 
 - name: Register nextcloud name with Route53
   connection: local
