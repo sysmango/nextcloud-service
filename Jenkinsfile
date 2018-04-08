@@ -48,29 +48,29 @@ pipeline {
              }
            }
          }
+         stage('Upload Playbook to Repository') {
+           steps {
+             script {
+               git archive -o nexus-service.tar.gz --format tgz -v master
+             }
+             nexusArtifactUploader {
+               nexusVersion('nexus3')
+               protocol('http')
+               nexusUrl('nexus:8081')
+               groupId('roles')
+               version('3.10')
+               repository('ansible')
+               credentialsId('nexus-creds')
+               artifact {
+                 artifactId('nexus-artifact-uploader')
+                 type('raw')
+                 classifier('debug')
+                 file('nextcloud-service.tar.gz')
+               }
+             }
+           }
+         }
       }
-    stage('Upload Playbook to Repository') {
-      steps {
-        script {
-          git archive -o nexus-service.tar.gz --format tgz -v master
-        }
-        nexusArtifactUploader {
-          nexusVersion('nexus3')
-          protocol('http')
-          nexusUrl('nexus:8081')
-          groupId('roles')
-          version('3.10')
-          repository('ansible')
-          credentialsId('nexus-creds')
-          artifact {
-            artifactId('nexus-artifact-uploader')
-            type('raw')
-            classifier('debug')
-            file('nextcloud-service.tar.gz')
-          }
-        }
-      }
-    }
   }
 //  for (def fileToProcess : filesToProcess) {
   post {
