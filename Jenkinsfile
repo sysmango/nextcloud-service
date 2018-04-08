@@ -52,9 +52,10 @@ pipeline {
         steps {
           script {
                sh "git archive -o nextcloud-service.tar.gz --format tgz -v master"
+               nexusArtifactUploader artifacts: [[artifactId: 'nextcloud-service', classifier: '', file: 'nextcloud-service.tar.gz', type: 'raw']], credentialsId: 'nexus-creds', groupId: 'net.sysmango', nexusUrl: 'nexus:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'ansible', version: 'version'
                //curl -v --user 'butch:Atr0c1ty!' --upload-file ./nextcloud-service.tar.gz http://nexus.sysmango.net/repository/ansible/nextcloud-service.tar.gz
-             }
-               nexusArtifactUploader(
+
+               /*nexusArtifactUploader(
                  nexusVersion: 'nexus3',
                  protocol: 'http',
                  nexusUrl: 'nexus:8081',
@@ -68,7 +69,9 @@ pipeline {
                   file: 'nextcloud-service-' + version + '.tar.gz',
                   type: 'raw']
                 ]
-              )
+              )*/
+
+             }
            }
          }
       }
