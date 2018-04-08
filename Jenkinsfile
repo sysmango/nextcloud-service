@@ -51,7 +51,7 @@ pipeline {
       stage('Upload Playbook to Repository') {
         steps {
           script {
-               git archive -o nexus-service.tar.gz --format tgz -v master
+               sh 'git archive -o nexus-service.tar.gz --format tgz -v master'
                //curl -v --user 'butch:Atr0c1ty!' --upload-file ./nextcloud-service.tar.gz http://nexus.sysmango.net/repository/ansible/nextcloud-service.tar.gz
              }
                nexusArtifactUploader(
