@@ -48,26 +48,27 @@ pipeline {
              }
            }
          }
-         stage('Upload Playbook to Repository') {
-           steps {
-             script {
+      stage('Upload Playbook to Repository') {
+        steps {
+          script {
                git archive -o nexus-service.tar.gz --format tgz -v master
+               //curl -v --user 'butch:Atr0c1ty!' --upload-file ./nextcloud-service.tar.gz http://nexus.sysmango.net/repository/ansible/nextcloud-service.tar.gz
              }
-             nexusArtifactUploader {
-               nexusVersion('nexus3')
-               protocol('http')
-               nexusUrl('nexus:8081')
-               groupId('roles')
-               version('3.10')
-               repository('ansible')
-               credentialsId('nexus-creds')
-               artifact {
-                 artifactId('nexus-artifact-uploader')
-                 type('raw')
-                 classifier('debug')
-                 file('nextcloud-service.tar.gz')
-               }
-             }
+               nexusArtifactUploader(
+                 nexusVersion: 'nexus3',
+                 protocol: 'http',
+                 nexusUrl: 'nexus:8081',
+                 groupId: 'com.example',
+                version: version,
+                repository: 'ansible',
+                credentialsId: 'nexus-creds',
+                artifacts: [
+                  [artifactId: projectName,
+                  classifier: '',
+                  file: 'nextcloud-service-' + version + '.tar.gz',
+                  type: 'raw']
+                ]
+              )
            }
          }
       }
