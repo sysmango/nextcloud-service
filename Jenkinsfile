@@ -27,7 +27,7 @@ pipeline {
             parallel(
               a: {
                 try {
-                  echo  sh "ansible-lint -c jenkins/ansible-lint_config */*.yml"
+                  sh "ansible-lint -c jenkins/ansible-lint_config */*.yml"
                 } catch (err) {
                   echo "ansible-lint reported errors, continuing with pipeline"
                   currentBuild.result = 'UNSTABLE'
