@@ -27,10 +27,10 @@ Dependencies
 
 Local Dependancies:
 
-> [PostgreSQL](http://postgresql.org/)
-> [Redis](https://redis.io/)]
-> [Traefik](http://traefik.io/)
-> [HashiCrop Vault](http://vaultproject.io/)
+* [PostgreSQL](http://postgresql.org/)
+* [Redis](https://redis.io/)
+* [Traefik](http://traefik.io/)
+* [HashiCrop Vault](http://vaultproject.io/)
 
 Example Playbook
 ----------------
