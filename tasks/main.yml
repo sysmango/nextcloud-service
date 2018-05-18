@@ -116,14 +116,3 @@
     {{nextcloud_docker_image}}:{{nextcloud_docker_image_tag}}
   run_once: true
   when: nextcloud_status.rc == 1
-
-- name: Register nextcloud name with Route53
-  connection: local
-  route53:
-    state: present
-    zone: sysmango.net
-    record: nextcloud.sysmango.net
-    type: A
-    value: 192.168.1.143,192.168.1.224,192.168.1.201
-    overwrite: "yes"
-    wait: "yes"
