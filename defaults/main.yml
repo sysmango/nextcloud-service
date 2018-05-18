@@ -1,2 +1,26 @@
 ---
 # defaults file for nextcloud-service
+
+# User for database connection
+nextcloud_db_user: nextcloud
+
+# Password for database connection
+nextcloud_db_passwd: nextadmin
+
+# Database connection
+nextcould_db_connection: "postgres:5432"
+
+# Database to use
+nextcloud_database: nextcloud
+
+# Nextcloud admin user
+nextcloud_admin_user: nextcloud_admin_user
+
+# Nextcloud admin passwd
+nextcloud_admin_passwd: 'changeme'
+
+# Nextcloud docker image
+nextcloud_docker_image: nextcloud
+
+# Nextcloud docker image tag
+nextcloud_docker_image_tag: latest

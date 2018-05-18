@@ -57,6 +57,24 @@
   any_errors_fatal: true
   when: nextcloud_status.rc == 1
 
+- name: Retrieve password from vault
+  hashivault_read:
+    secret: 'database/postgres/pgpassword'
+    key: 'value'
+  when: postgres_status.rc == 1
+
+- name: Set fact to carry database secret
+  set_fact:
+    pgpassword: "{{lookup('hashivault', 'database/postgres/pgpassword', 'value')}}"
+  when: postgres_status.rc == 1
+
+- name: Set docker secret
+  docker_secret:
+    name: postgres_password
+    data: "{{pgpassword}}"
+    state: present
+  when: pgpassword is defined
+
 - name: Create nextcloud db user
   connection: local
   postgresql_user:
@@ -89,13 +107,13 @@
     --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/data,volume-opt=type=nfs,target=/var/www/html/data' \
     --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/custom_apps,volume-opt=type=nfs,target=/var/www/custom_apps' \
     --replicas 1 \
-    -e POSTGRES_DB=nextcloud \
-    -e POSTGRES_USER=nextcloud \
-    -e POSTGRES_PASSWORD=nextadmin \
-    -e POSTGRES_HOST=postgres:5432 \
-    -e NEXTCLOUD_ADMIN_USER=sysmango \
-    -e NEXTCLOUD_ADMIN_PASSWORD='Atr0c1ty!' \
-    registry.sysmango.net/nextcloud:latest
+    -e POSTGRES_DB={{nextcloud}} \
+    -e POSTGRES_USER={{nextcloud_db_user}} \
+    -e POSTGRES_PASSWORD={{nextcloud_db-passwd}} \
+    -e POSTGRES_HOST{{nextcloud_db_connection}} \
+    -e NEXTCLOUD_ADMIN_USER={{nextcloud_admin_user}} \
+    -e NEXTCLOUD_ADMIN_PASSWORD={{nextcloud_admin_password}} \
+    {{nextcloud_docker_image}}:{{nextcloud_docker_image_tag}}
   run_once: true
   when: nextcloud_status.rc == 1
 
