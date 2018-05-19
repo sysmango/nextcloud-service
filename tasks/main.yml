@@ -79,7 +79,7 @@
   connection: local
   postgresql_user:
     login_host: postgres
-    login_password: dbadmin
+    login_password: "{{postgres_password}}"
     user: nextcloud
     password: nextadmin
     encrypted: "yes"

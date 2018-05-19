@@ -127,7 +127,7 @@ pipeline {
                   }                  
                 }
             }
-            // stage('Archive content to $BRANCH_NAME repository') {
+            // stage('Archive content to ${BRANCH_NAME} repository') {
             //       environment { 
             //             CRED = credentials('nexus-creds') 
             //       }
@@ -135,7 +135,7 @@ pipeline {
             //       script {
             //             //running grep to ensure all ansible playbooks are writing logs analytics team needs"
             //             // currently on searching root if want to search all files use **/*.yml
-            //             sh "git archive --format=tar.gz --output nextcloud-service.tar.gz $BRANCH_NAME;curl --user '$CRED' -v --upload-file nextcloud-service.tar.gz http://nexus.sysmango.net/repository/ansible/$BRANCH_NAME/nextcloud-serice.tar.gz"
+            //             sh "git archive --format=tar.gz --output nextcloud-service.tar.gz ${BRANCH_NAME};curl --user '${CRED}' -v --upload-file nextcloud-service.tar.gz http://nexus.sysmango.net/repository/ansible/$BRANCH_NAME/nextcloud-serice.tar.gz"
             //       }                  
             //     }
             // }
