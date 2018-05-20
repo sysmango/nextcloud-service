@@ -8,7 +8,7 @@ nextcloud_db_user: nextcloud
 nextcloud_db_passwd: nextadmin
 
 # Database connection
-nextcould_db_connection: "postgres:5432"
+nextcould_db_connection: 'postgres:5432'
 
 # Database to use
 nextcloud_database: nextcloud
