@@ -66,6 +66,7 @@
   when: nextcloud_status.rc == 1
 
 - name: Set fact to carry database secret
+  connection: local
   set_fact:
     postgres_password: "{{lookup('hashivault', 'database/postgres/password', 'value')}}"
   when: nextcloud_status.rc == 1
