@@ -23,4 +23,4 @@ nextcloud_admin_passwd: 'changeme'
 nextcloud_docker_image: nextcloud
 
 # Nextcloud docker image tag
-nextcloud_docker_image_tag: latest
+nextcloud_docker_image_tag: 18.0.3
