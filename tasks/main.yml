@@ -7,68 +7,10 @@
   failed_when: nextcloud_status.rc == 2
   register: nextcloud_status
 
-- name: Create nextcloud volume root directory
-  hosts: nfs-server[0]
-  become: "yes"
-  file:
-    path: /srv/nfs/nextcloud
-    state: directory
-    mode: 0777
-  any_errors_fatal: true
-  when: nextcloud_status.rc == 1
-
-- name: Create nextcloud volume html directory
-  hosts: nfs-server[0]
-  become: "yes"
-  file:
-    path: /srv/nfs/nextcloud/html
-    state: directory
-    mode: 0777
-  any_errors_fatal: true
-  when: nextcloud_status.rc == 1
-
-- name: Create nextcloud volume data directory
-  hosts: nfs-server[0]
-  become: "yes"
-  file:
-    path: /srv/nfs/nextcloud/config
-    state: directory
-    mode: 0777
-  any_errors_fatal: true
-  when: nextcloud_status.rc == 1
-
-- name: Create nextcloud volume data directory
-  hosts: nfs-server[0]
-  become: "yes"
-  file:
-    path: /srv/nfs/nextcloud/data
-    state: directory
-    mode: 0777
-  any_errors_fatal: true
-  when: nextcloud_status.rc == 1
-
-- name: Create nextcloud volume data directory
-  hosts: nfs-server[0]
-  become: "yes"
-  file:
-    path: /srv/nfs/nextcloud/custom_apps
-    state: directory
-    mode: 0777
-  any_errors_fatal: true
-  when: nextcloud_status.rc == 1
-
-- name: Retrieve password from vault
-  connection: local
-  hashivault_read:
-    secret: 'database/postgres/password'
-    key: 'value'
-  register: postgres_password
-  when: nextcloud_status.rc == 1
-
 - name: Set fact to carry database secret
   connection: local
   set_fact:
-    postgres_password: "{{lookup('hashivault', 'database/postgres/password', 'value')}}"
+    postgres_password: "{{lookup('hashi_vault', 'secret=secret/database/postgres/password:value')}}"
   when: nextcloud_status.rc == 1
 
 - name: Create nextcloud db user
@@ -93,15 +35,14 @@
   when: nextcloud_status.rc == 1
 
 - name: Deploy nextcloud service
-  hosts: docker-manager[0]
   command: |
     docker service create -d --name nextcloud \
     --network mangonet \
     --label traefik.port=80 \
-    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/html,volume-opt=type=nfs,target=/var/www/html' \
-    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/config,volume-opt=type=nfs,target=/var/www/html/config' \
-    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/data,volume-opt=type=nfs,target=/var/www/html/data' \
-    --mount 'type=volume,"volume-opt=o=addr=grid011.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/nextcloud/custom_apps,volume-opt=type=nfs,target=/var/www/custom_apps' \
+    --mount 'type=volume,"volume-opt=o=addr=files.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/prod/nextcloud/html,volume-opt=type=nfs,target=/var/www/html' \
+    --mount 'type=volume,"volume-opt=o=addr=files.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/prod/nextcloud/config,volume-opt=type=nfs,target=/var/www/html/config' \
+    --mount 'type=volume,"volume-opt=o=addr=files.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/prod/nextcloud/data,volume-opt=type=nfs,target=/var/www/html/data' \
+    --mount 'type=volume,"volume-opt=o=addr=files.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/prod/nextcloud/custom_apps,volume-opt=type=nfs,target=/var/www/custom_apps' \
     --replicas 1 \
     -e POSTGRES_DB={{nextcloud_database}} \
     -e POSTGRES_USER={{nextcloud_db_user}} \
