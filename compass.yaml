@@ -4,7 +4,7 @@ id: 'ari:cloud:compass:006a6c35-95c8-4a9c-bf41-6f26f474ed02:component/d7b126b6-b
 description: Nextcloud service deployed on K3s with NFS-backed PersistentVolumes and Traefik ingress. Uses PostgreSQL and shared CA trust via SysMango CA bundle.
 configVersion: 1
 typeId: SERVICE
-ownerId: 'ari:cloud:identity::team/og-27674967-b056-4c69-8039-47baa1cdb7e6'
+ownerId: 'ari:cloud:identity::team/1f652a16-6984-43de-bd00-bb1ce9d8c62f'
 
 fields:
   tier: 4
