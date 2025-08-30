@@ -1,0 +1,20 @@
+---
+# NextCloud Service role: Helm-based deployment following Virtono tutorial
+# Main entry point for Helm-based NextCloud deployment on K3s
+
+# Include preflight checks
+- name: Include preflight checks
+  ansible.builtin.include_tasks: preflight.yml
+
+# Include Helm deployment tasks
+- name: Include Helm deployment tasks
+  ansible.builtin.include_tasks: helm-deployment.yml
+  when: not (cleanup_mode | default(false))
+
+# Include cleanup tasks when in cleanup mode
+- name: Include Helm cleanup tasks
+  ansible.builtin.include_tasks: helm-cleanup.yml
+  when: cleanup_mode | default(false)
+  tags:
+    - never
+    - cleanup
