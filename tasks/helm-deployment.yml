@@ -1,0 +1,238 @@
+---
+# NextCloud Helm-based deployment following Virtono tutorial approach
+# Adapted for SysMango infrastructure with Vault, NFS, and CA certificates
+
+# Preflight: Check Helm is available
+- name: Preflight | Check Helm is installed
+  ansible.builtin.command: helm version --short
+  register: helm_version
+  changed_when: false
+
+- name: Preflight | Display Helm version
+  ansible.builtin.debug:
+    msg: "Using {{ helm_version.stdout }}"
+
+# Vault: fetch postgres password
+- name: Vault | Read Postgres secret (KV v2)
+  hashivault_read:
+    url: "{{ vault_addr }}"
+    namespace: "{{ vault_namespace | default('') }}"
+    mount_point: "kv"
+    secret: "{{ pg_vault_secret }}"
+    version: 2
+    verify: false
+  register: vault_pg
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_NAMESPACE: "{{ vault_namespace | default('') }}"
+  when: pg_password_from_vault | default(true)
+
+- name: Vault | Set facts from postgres secret
+  ansible.builtin.set_fact:
+    postgres_password: "{{ (vault_pg.value[pg_vault_field] | default(vault_pg.data[pg_vault_field])) | default(postgres_password | default('')) }}"
+  when: pg_password_from_vault | default(true)
+
+# Vault: fetch nextcloud secrets
+- name: Vault | Read NextCloud secret (KV v2)
+  hashivault_read:
+    url: "{{ vault_addr }}"
+    namespace: "{{ vault_namespace | default('') }}"
+    mount_point: "kv"
+    secret: "{{ nextcloud_vault_secret }}"
+    version: 2
+    verify: false
+  register: vault_nextcloud
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_NAMESPACE: "{{ vault_namespace | default('') }}"
+  when: nextcloud_password_from_vault | default(true)
+
+- name: Vault | Set facts from nextcloud secret
+  ansible.builtin.set_fact:
+    nextcloud_admin_user: "{{ (vault_nextcloud.value['nextcloud_admin'] | default(vault_nextcloud.data['nextcloud_admin'])) | default(nextcloud_admin_user | default('admin')) }}"
+    nextcloud_admin_passwd: "{{ (vault_nextcloud.value['nextcloud_password'] | default(vault_nextcloud.data['nextcloud_password'])) | default(nextcloud_admin_passwd | default('')) }}"
+    nextcloud_database: "{{ (vault_nextcloud.value['nextcloud_database'] | default(vault_nextcloud.data['nextcloud_database'])) | default(nextcloud_database | default('nextcloud')) }}"
+    nextcloud_db_user: "{{ (vault_nextcloud.value['nextcloud_db_user'] | default(vault_nextcloud.data['nextcloud_db_user'])) | default(nextcloud_db_user | default('nextcloud')) }}"
+    nextcloud_db_passwd: "{{ (vault_nextcloud.value['nextcloud_db_password'] | default(vault_nextcloud.data['nextcloud_db_password'])) | default(nextcloud_db_passwd | default('')) }}"
+  when: nextcloud_password_from_vault | default(true)
+
+# Database setup (if enabled)
+- name: Database | Create nextcloud db user
+  postgresql_user:
+    login_host: "{{ postgres_external_host }}"
+    login_password: "{{ postgres_password }}"
+    login_user: "{{ postgres_user | default('postgres') }}"
+    user: "{{ nextcloud_db_user }}"
+    password: "{{ nextcloud_db_passwd }}"
+    encrypted: "yes"
+    state: present
+  when: create_nextcloud_db | default(true)
+  delegate_to: localhost
+
+- name: Database | Setup nextcloud database on db server
+  postgresql_db:
+    login_host: "{{ postgres_external_host }}"
+    login_password: "{{ postgres_password }}"
+    login_user: "{{ postgres_user | default('postgres') }}"
+    name: "{{ nextcloud_database }}"
+    owner: "{{ nextcloud_db_user }}"
+    state: present
+  when: create_nextcloud_db | default(true)
+  delegate_to: localhost
+
+# Namespace creation
+- name: Create nextcloud namespace
+  kubernetes.core.k8s:
+    name: "{{ nextcloud_namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+
+# NFS Storage setup
+- name: NFS | Create NextCloud export directories on NFS server
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "{{ nfs_dir_mode }}"
+    owner: "{{ nfs_dir_owner }}"
+    group: "{{ nfs_dir_group }}"
+    recurse: true
+  delegate_to: "{{ nfs_server_host }}"
+  become: true
+  loop:
+    - "{{ nfs_nextcloud_html_path }}"
+    - "{{ nfs_nextcloud_config_path }}"
+    - "{{ nfs_nextcloud_data_path }}"
+    - "{{ nfs_nextcloud_custom_apps_path }}"
+  when: create_nfs_directories | default(false)
+
+# Create NFS PVs and PVCs
+- name: Create NFS PersistentVolumes for NextCloud
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'nextcloud-pv.yaml.j2') | from_yaml_all | list }}"
+
+- name: Create PersistentVolumeClaims for NextCloud
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'nextcloud-pvc.yaml.j2') | from_yaml_all | list }}"
+
+# Add NextCloud Helm repository
+- name: Helm | Add NextCloud repository
+  kubernetes.core.helm_repository:
+    name: nextcloud
+    repo_url: https://nextcloud.github.io/helm/
+
+- name: Helm | Update repository cache
+  kubernetes.core.helm:
+    name: dummy
+    chart_ref: nextcloud/nextcloud
+    release_namespace: "{{ nextcloud_namespace }}"
+    state: absent
+    update_repo_cache: true
+
+# Create secrets for Helm chart
+- name: Create database secret for Helm
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: nextcloud-db-secret
+        namespace: "{{ nextcloud_namespace }}"
+      type: Opaque
+      stringData:
+        db-username: "{{ nextcloud_db_user }}"
+        db-password: "{{ nextcloud_db_passwd }}"
+
+- name: Create admin secret for Helm
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: nextcloud-admin-secret
+        namespace: "{{ nextcloud_namespace }}"
+      type: Opaque
+      stringData:
+        nextcloud-username: "{{ nextcloud_admin_user }}"
+        nextcloud-password: "{{ nextcloud_admin_passwd }}"
+
+# Generate dynamic values for Helm
+- name: Generate Helm values
+  ansible.builtin.set_fact:
+    helm_values:
+      nextcloud:
+        host: "{{ nextcloud_hostname }}"
+        existingSecret:
+          enabled: true
+          secretName: nextcloud-admin-secret
+          usernameKey: nextcloud-username
+          passwordKey: nextcloud-password
+        externalDatabase:
+          enabled: true
+          type: postgresql
+          host: "{{ nextcloud_db_connection.split(':')[0] }}"
+          port: "{{ nextcloud_db_connection.split(':')[1] | default('5432') }}"
+          database: "{{ nextcloud_database }}"
+          existingSecret:
+            enabled: true
+            secretName: nextcloud-db-secret
+            usernameKey: db-username
+            passwordKey: db-password
+      image:
+        repository: "{{ nextcloud_docker_image }}"
+        tag: "{{ nextcloud_docker_image_tag }}"
+      persistence:
+        enabled: true
+        nextcloudData:
+          enabled: true
+          existingClaim: nextcloud-data-pvc
+        nextcloudHtml:
+          enabled: true
+          existingClaim: nextcloud-html-pvc
+        nextcloudConfig:
+          enabled: true
+          existingClaim: nextcloud-config-pvc
+      resources: "{{ nextcloud_resources }}"
+      replicaCount: "{{ nextcloud_replicas }}"
+      ingress:
+        enabled: false
+
+# Deploy NextCloud using Helm
+- name: Helm | Deploy NextCloud
+  kubernetes.core.helm:
+    name: nextcloud
+    chart_ref: nextcloud/nextcloud
+    release_namespace: "{{ nextcloud_namespace }}"
+    create_namespace: false
+    values: "{{ helm_values }}"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 600s
+
+# Create Traefik IngressRoute (since Helm ingress is disabled)
+- name: Create Traefik IngressRoute for NextCloud
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'nextcloud-ingressroute.yaml.j2') | from_yaml }}"
+
+# Wait for deployment to be ready
+- name: Wait for NextCloud deployment to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: nextcloud
+    namespace: "{{ nextcloud_namespace }}"
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 300
+
+- name: Display deployment status
+  ansible.builtin.debug:
+    msg: "NextCloud has been deployed via Helm to {{ nextcloud_hostname }}"

@@ -1,0 +1,58 @@
+# NextCloud HTML PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-html-pvc
+  namespace: {{ nextcloud_namespace }}
+spec:
+  storageClassName: ""
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: "{{ nextcloud_html_pvc_size | default('10Gi') }}"
+  volumeName: "nextcloud-html-pv-{{ env }}"
+
+---
+# NextCloud Config PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-config-pvc
+  namespace: {{ nextcloud_namespace }}
+spec:
+  storageClassName: ""
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: "{{ nextcloud_config_pvc_size | default('1Gi') }}"
+  volumeName: "nextcloud-config-pv-{{ env }}"
+
+---
+# NextCloud Data PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-data-pvc
+  namespace: {{ nextcloud_namespace }}
+spec:
+  storageClassName: ""
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: "{{ nextcloud_data_pvc_size | default('100Gi') }}"
+  volumeName: "nextcloud-data-pv-{{ env }}"
+
+---
+# NextCloud Custom Apps PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-custom-apps-pvc
+  namespace: {{ nextcloud_namespace }}
+spec:
+  storageClassName: ""
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: "{{ nextcloud_custom_apps_pvc_size | default('5Gi') }}"
+  volumeName: "nextcloud-custom-apps-pv-{{ env }}"

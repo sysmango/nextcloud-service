@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextcloud
+  namespace: {{ nextcloud_namespace }}
+  labels:
+    app: nextcloud
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  selector:
+    app: nextcloud

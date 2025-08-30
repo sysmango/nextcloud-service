@@ -1,55 +1,424 @@
 ---
+# NextCloud Service role: NextCloud deployment on K3s with NFS-backed storage and Traefik ingress
 
-- name: Check if nextcloud service is running
-  shell: docker service ls | awk '{print $2}' | grep nextcloud
-  changed_when: nextcloud_status.rc == 1
-  ignore_errors: true
-  failed_when: nextcloud_status.rc == 2
-  register: nextcloud_status
+# Preflight: required CRDs and CA certificates
+- name: Preflight | Check CA ConfigMap exists (if CA certificates enabled)
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ ca_configmap_name }}"
+    namespace: "{{ ca_configmap_namespace }}"
+  register: ca_configmap_check
+  when: enable_ca_certificates | default(true)
 
-- name: Set fact to carry database secret
-  connection: local
-  set_fact:
-    postgres_password: "{{lookup('hashi_vault', 'secret=secret/database/postgres/password:value')}}"
-  when: nextcloud_status.rc == 1
+- name: Preflight | Assert CA ConfigMap exists (if CA certificates enabled)
+  ansible.builtin.assert:
+    that:
+      - (ca_configmap_check.resources | length) > 0
+    fail_msg: "CA ConfigMap {{ ca_configmap_name }} not found in {{ ca_configmap_namespace }}. Ensure ca-certificates role has been run."
+    success_msg: "CA ConfigMap found."
+  when: enable_ca_certificates | default(true)
 
-- name: Create nextcloud db user
-  connection: local
+- name: Preflight | Check Traefik IngressRoute CRD present
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: ingressroutes.traefik.io
+  register: traefik_ir_crd
+
+- name: Preflight | Assert required CRDs exist
+  ansible.builtin.assert:
+    that:
+      - (traefik_ir_crd.resources | length) > 0
+    fail_msg: "Required CRDs missing. Ensure Traefik v3 is installed (ingressroutes.traefik.io)."
+    success_msg: "All required CRDs are present."
+
+# Vault: fetch postgres password
+- name: Vault | Read Postgres secret (KV v2)
+  hashivault_read:
+    url: "{{ vault_addr }}"
+    namespace: "{{ vault_namespace | default('') }}"
+    mount_point: "kv"
+    secret: "{{ pg_vault_secret }}"
+    version: 2
+    verify: false
+  register: vault_pg
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_NAMESPACE: "{{ vault_namespace | default('') }}"
+  when: pg_password_from_vault | default(true)
+
+- name: Vault | Set facts from postgres secret
+  ansible.builtin.set_fact:
+    pg_secret_map: "{{ vault_pg.value | default(vault_pg.data) }}"
+    postgres_password: "{{ (vault_pg.value[pg_vault_field] | default(vault_pg.data[pg_vault_field])) | default(postgres_password | default('')) }}"
+  when: pg_password_from_vault | default(true)
+
+- name: Vault | Validate postgres values present (if enabled)
+  ansible.builtin.assert:
+    that:
+      - (postgres_password | default('')) | length > 0
+    fail_msg: "Vault DB values missing. Ensure secret {{ pg_vault_secret }} has key: {{ pg_vault_field }}."
+    success_msg: "Vault DB values loaded."
+  when: pg_password_from_vault | default(true)
+
+# Vault: fetch nextcloud secrets
+- name: Vault | Read NextCloud secret (KV v2)
+  hashivault_read:
+    url: "{{ vault_addr }}"
+    namespace: "{{ vault_namespace | default('') }}"
+    mount_point: "kv"
+    secret: "{{ nextcloud_vault_secret }}"
+    version: 2
+    verify: false
+  register: vault_nextcloud
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_NAMESPACE: "{{ vault_namespace | default('') }}"
+  when: nextcloud_password_from_vault | default(true)
+
+- name: Vault | Set facts from nextcloud secret
+  ansible.builtin.set_fact:
+    nextcloud_secret_map: "{{ vault_nextcloud.value | default(vault_nextcloud.data) }}"
+    nextcloud_admin_user: "{{ (vault_nextcloud.value['nextcloud_admin'] | default(vault_nextcloud.data['nextcloud_admin'])) | default(nextcloud_admin_user | default('admin')) }}"
+    nextcloud_admin_passwd: "{{ (vault_nextcloud.value['nextcloud_password'] | default(vault_nextcloud.data['nextcloud_password'])) | default(nextcloud_admin_passwd | default('')) }}"
+    nextcloud_database: "{{ (vault_nextcloud.value['nextcloud_database'] | default(vault_nextcloud.data['nextcloud_database'])) | default(nextcloud_database | default('nextcloud')) }}"
+    nextcloud_db_user: "{{ (vault_nextcloud.value['nextcloud_db_user'] | default(vault_nextcloud.data['nextcloud_db_user'])) | default(nextcloud_db_user | default('nextcloud')) }}"
+    nextcloud_db_passwd: "{{ (vault_nextcloud.value['nextcloud_db_password'] | default(vault_nextcloud.data['nextcloud_db_password'])) | default(nextcloud_db_passwd | default('')) }}"
+  when: nextcloud_password_from_vault | default(true)
+
+- name: Vault | Validate nextcloud values present (if enabled)
+  ansible.builtin.assert:
+    that:
+      - (nextcloud_admin_user | default('')) | length > 0
+      - (nextcloud_admin_passwd | default('')) | length > 0
+      - (nextcloud_database | default('')) | length > 0
+      - (nextcloud_db_user | default('')) | length > 0
+      - (nextcloud_db_passwd | default('')) | length > 0
+    fail_msg: "Vault NextCloud values missing. Ensure secret {{ nextcloud_vault_secret }} has keys: nextcloud_admin, nextcloud_password, nextcloud_database, nextcloud_db_user, nextcloud_db_password."
+    success_msg: "Vault NextCloud values loaded."
+  when: nextcloud_password_from_vault | default(true)
+
+# NFS preflight
+- name: Preflight | Assert nfs_server_host is provided
+  ansible.builtin.assert:
+    that:
+      - (nfs_server_host | default('')) | length > 0
+    fail_msg: "nfs_server_host is not set. Provide the inventory host or IP of the NFS server."
+    success_msg: "nfs_server_host provided."
+
+- name: NFS | Verify connectivity to NFS server
+  ansible.builtin.ping:
+  delegate_to: "{{ nfs_server_host }}"
+
+- name: NFS | Create NextCloud export directories on NFS server
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "{{ nfs_dir_mode }}"
+    owner: "{{ nfs_dir_owner }}"
+    group: "{{ nfs_dir_group }}"
+    # Do not recurse here; active Nextcloud writes can create ephemeral files and cause race errors
+  delegate_to: "{{ nfs_server_host }}"
+  become: true
+  loop:
+    - "{{ nfs_nextcloud_html_path }}"
+    - "{{ nfs_nextcloud_config_path }}"
+    - "{{ nfs_nextcloud_data_path }}"
+    - "{{ nfs_nextcloud_custom_apps_path }}"
+
+- name: NFS | Create NextCloud export data directory on NFS server
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "{{ nfs_data_dir_mode }}"
+    owner: "{{ nfs_dir_owner }}"
+    group: "{{ nfs_dir_group }}"
+    # Do not recurse here; active Nextcloud writes can create ephemeral files and cause race errors
+  delegate_to: "{{ nfs_server_host }}"
+  become: true
+  loop:
+    - "{{ nfs_nextcloud_data_path }}"
+
+- name: NFS | Fix ownership on existing NextCloud files
+  ansible.builtin.command: >
+    chown -R {{ nfs_dir_owner }}:{{ nfs_dir_group }} {{ item }}
+  delegate_to: "{{ nfs_server_host }}"
+  become: true
+  loop:
+    - "{{ nfs_nextcloud_html_path }}"
+    - "{{ nfs_nextcloud_config_path }}"
+    - "{{ nfs_nextcloud_data_path }}"
+    - "{{ nfs_nextcloud_custom_apps_path }}"
+  changed_when: true
+
+- name: NFS | Fix directory permissions for NextCloud
+  ansible.builtin.command: >
+    find {{ item }} -type d -exec chmod 775 {} \;
+  delegate_to: "{{ nfs_server_host }}"
+  become: true
+  loop:
+    - "{{ nfs_nextcloud_html_path }}"
+    - "{{ nfs_nextcloud_config_path }}"
+    - "{{ nfs_nextcloud_data_path }}"
+    - "{{ nfs_nextcloud_custom_apps_path }}"
+  changed_when: true
+
+# Database setup (if enabled)
+- name: Database | Create nextcloud db user
   postgresql_user:
-    login_host: postgres
-    login_password: '{{postgres_password}}'
-    user: nextcloud
-    password: nextadmin
+    login_host: "{{ postgres_external_host }}"
+    login_password: "{{ postgres_password }}"
+    login_user: "{{ postgres_user | default('postgres') }}"
+    user: "{{ nextcloud_db_user }}"
+    password: "{{ nextcloud_db_passwd }}"
     encrypted: "yes"
     state: present
-  when: nextcloud_status.rc == 1
+  when: create_nextcloud_db | default(true)
+  delegate_to: localhost
 
-- name: Setup nextcloud database on db server
-  connection: local
+- name: Database | Setup nextcloud database on db server
   postgresql_db:
-    login_host: postgres
-    login_password: '{{postgres_password}}'
-    name: nextcloud
-    owner: nextcloud
+    login_host: "{{ postgres_external_host }}"
+    login_password: "{{ postgres_password }}"
+    login_user: "{{ postgres_user | default('postgres') }}"
+    name: "{{ nextcloud_database }}"
+    owner: "{{ nextcloud_db_user }}"
     state: present
-  when: nextcloud_status.rc == 1
+  when: create_nextcloud_db | default(true)
+  delegate_to: localhost
 
-- name: Deploy nextcloud service
-  command: |
-    docker service create -d --name nextcloud \
-    --network mangonet \
-    --label traefik.port=80 \
-    --mount 'type=volume,"volume-opt=o=addr=files.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/prod/nextcloud/html,volume-opt=type=nfs,target=/var/www/html' \
-    --mount 'type=volume,"volume-opt=o=addr=files.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/prod/nextcloud/config,volume-opt=type=nfs,target=/var/www/html/config' \
-    --mount 'type=volume,"volume-opt=o=addr=files.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/prod/nextcloud/data,volume-opt=type=nfs,target=/var/www/html/data' \
-    --mount 'type=volume,"volume-opt=o=addr=files.sysmango.net,vers=4.1",volume-opt=device=:/srv/nfs/prod/nextcloud/custom_apps,volume-opt=type=nfs,target=/var/www/custom_apps' \
-    --replicas 1 \
-    -e POSTGRES_DB={{nextcloud_database}} \
-    -e POSTGRES_USER={{nextcloud_db_user}} \
-    -e POSTGRES_PASSWORD={{nextcloud_db_passwd}} \
-    -e POSTGRES_HOST{{nextcould_db_connection}} \
-    -e NEXTCLOUD_ADMIN_USER={{nextcloud_admin_user}} \
-    -e NEXTCLOUD_ADMIN_PASSWORD={{nextcloud_admin_passwd}} \
-    {{nextcloud_docker_image}}:{{nextcloud_docker_image_tag}}
-  run_once: true
-  when: nextcloud_status.rc == 1
+# Namespace
+- name: Create nextcloud namespace
+  kubernetes.core.k8s:
+    name: "{{ nextcloud_namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+
+# TLS via cert-manager (optional)
+- name: Preflight | Check cert-manager Certificate CRD present (if cert-manager enabled)
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: certificates.cert-manager.io
+  register: certmgr_crd
+  when: enable_cert_manager | default(false)
+
+- name: Preflight | Assert cert-manager CRD exists (if cert-manager enabled)
+  ansible.builtin.assert:
+    that:
+      - (certmgr_crd.resources | length) > 0
+    fail_msg: "cert-manager CRD certificates.cert-manager.io not found. Install cert-manager or disable enable_cert_manager."
+    success_msg: "cert-manager CRD found."
+  when: enable_cert_manager | default(false)
+
+# Replicate CA ConfigMap into app namespace (if enabled)
+- name: CA | Get sysmango-ca-certificates from kube-system
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ ca_configmap_name }}"
+    namespace: "{{ ca_configmap_namespace }}"
+  register: ca_src_cm
+  when: enable_ca_certificates | default(true)
+
+- name: CA | Compute number of .crt keys in source ConfigMap
+  ansible.builtin.set_fact:
+    ca_src_crt_count: "{{ (ca_src_cm.resources[0].data | default({})) | dict2items | selectattr('key','match','.*\\.crt$') | list | length }}"
+  when: enable_ca_certificates | default(true)
+
+- name: CA | Assert CA ConfigMap has certificate data (fail-fast)
+  ansible.builtin.assert:
+    that:
+      - (ca_src_cm.resources | default([])) | length > 0
+      - (ca_src_cm.resources[0].data | default({})) | length > 0
+      - ca_src_crt_count | int > 0
+    fail_msg: >-
+      CA ConfigMap {{ ca_configmap_name }} in {{ ca_configmap_namespace }} exists but has no *.crt data.
+      Populate it via the ca-certificates role before deploying Nextcloud, or set require_ca_configmap_nonempty=false to bypass.
+    success_msg: "CA ConfigMap contains certificate data."
+  when:
+    - enable_ca_certificates | default(true)
+    - require_ca_configmap_nonempty | default(true)
+
+- name: CA | Create/Update CA ConfigMap in app namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ ca_configmap_name }}"
+        namespace: "{{ nextcloud_namespace }}"
+      data: "{{ ca_src_cm.resources[0].data | default({}) }}"
+  when:
+    - enable_ca_certificates | default(true)
+    - (ca_src_cm.resources | default([])) | length > 0
+
+# Storage: PVs + PVCs bound to NFS
+- name: Create NFS PersistentVolumes for NextCloud
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'nextcloud-pv.yaml.j2') | from_yaml_all | list }}"
+
+- name: Create PersistentVolumeClaims for NextCloud
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'nextcloud-pvc.yaml.j2') | from_yaml_all | list }}"
+
+# ConfigMap for non-sensitive configuration
+- name: Create NextCloud config ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: nextcloud-config
+        namespace: "{{ nextcloud_namespace }}"
+      data:
+        POSTGRES_DB: "{{ nextcloud_database }}"
+        POSTGRES_HOST: "{{ nextcloud_db_connection }}"
+
+# Secret for sensitive configuration
+- name: Create NextCloud config secret
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: nextcloud-secret
+        namespace: "{{ nextcloud_namespace }}"
+      type: Opaque
+      stringData:
+        POSTGRES_USER: "{{ nextcloud_db_user }}"
+        POSTGRES_PASSWORD: "{{ nextcloud_db_passwd }}"
+        NEXTCLOUD_ADMIN_USER: "{{ nextcloud_admin_user }}"
+        NEXTCLOUD_ADMIN_PASSWORD: "{{ nextcloud_admin_passwd }}"
+
+# TLS Certificate (cert-manager)
+- name: TLS | Create Certificate for NextCloud (cert-manager)
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'nextcloud-certificate.yaml.j2') | from_yaml }}"
+  when: enable_cert_manager | default(false)
+
+# Service
+- name: Create NextCloud service
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'nextcloud-service.yaml.j2') | from_yaml }}"
+
+# Deployment
+- name: Deploy NextCloud
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'nextcloud-deployment.yaml.j2') | from_yaml }}"
+
+# Ingress
+- name: Create Traefik IngressRoute for NextCloud
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'nextcloud-ingressroute.yaml.j2') | from_yaml }}"
+
+# Cleanup block
+- name: Cleanup | Remove NextCloud resources
+  tags:
+    - never
+    - cleanup
+  when:
+    - cleanup | default(false)
+    - "'nextcloud-service' in ansible_run_tags"
+  block:
+    - name: Cleanup | Proceed marker
+      ansible.builtin.debug:
+        msg: "Running cleanup for nextcloud-service"
+    - name: Cleanup | Remove IngressRoute
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: traefik.io/v1alpha1
+          kind: IngressRoute
+          metadata:
+            name: nextcloud-ingress
+            namespace: "{{ nextcloud_namespace }}"
+
+    - name: Cleanup | Remove Deployment
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: nextcloud
+            namespace: "{{ nextcloud_namespace }}"
+
+    - name: Cleanup | Remove Service
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: nextcloud
+            namespace: "{{ nextcloud_namespace }}"
+
+    - name: Cleanup | Remove Secret
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: nextcloud-secret
+            namespace: "{{ nextcloud_namespace }}"
+
+    - name: Cleanup | Remove ConfigMap
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: nextcloud-config
+            namespace: "{{ nextcloud_namespace }}"
+
+    - name: Cleanup | Remove PVCs
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: "{{ item }}"
+            namespace: "{{ nextcloud_namespace }}"
+      loop:
+        - nextcloud-html-pvc
+        - nextcloud-config-pvc
+        - nextcloud-data-pvc
+        - nextcloud-custom-apps-pvc
+
+    - name: Cleanup | Remove PVs
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: PersistentVolume
+          metadata:
+            name: "{{ item }}"
+      loop:
+        - "nextcloud-html-pv-{{ env }}"
+        - "nextcloud-config-pv-{{ env }}"
+        - "nextcloud-data-pv-{{ env }}"
+        - "nextcloud-custom-apps-pv-{{ env }}"
+
+    - name: Cleanup | Remove Namespace (last)
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ nextcloud_namespace }}"

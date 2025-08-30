@@ -1,0 +1,66 @@
+# NextCloud HTML PersistentVolume
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: "nextcloud-html-pv-{{ env }}"
+spec:
+  storageClassName: ""
+  capacity:
+    storage: "{{ nextcloud_html_pvc_size | default('10Gi') }}"
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: "{{ nfs_server_host }}"
+    path: "{{ nfs_nextcloud_html_path }}"
+  mountOptions: ["nfsvers=4.1"]
+
+---
+# NextCloud Config PersistentVolume
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: "nextcloud-config-pv-{{ env }}"
+spec:
+  storageClassName: ""
+  capacity:
+    storage: "{{ nextcloud_config_pvc_size | default('1Gi') }}"
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: "{{ nfs_server_host }}"
+    path: "{{ nfs_nextcloud_config_path }}"
+  mountOptions: ["nfsvers=4.1"]
+
+---
+# NextCloud Data PersistentVolume
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: "nextcloud-data-pv-{{ env }}"
+spec:
+  storageClassName: ""
+  capacity:
+    storage: "{{ nextcloud_data_pvc_size | default('100Gi') }}"
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: "{{ nfs_server_host }}"
+    path: "{{ nfs_nextcloud_data_path }}"
+  mountOptions: ["nfsvers=4.1"]
+
+---
+# NextCloud Custom Apps PersistentVolume
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: "nextcloud-custom-apps-pv-{{ env }}"
+spec:
+  storageClassName: ""
+  capacity:
+    storage: "{{ nextcloud_custom_apps_pvc_size | default('5Gi') }}"
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: "{{ nfs_server_host }}"
+    path: "{{ nfs_nextcloud_custom_apps_path }}"
+  mountOptions: ["nfsvers=4.1"]

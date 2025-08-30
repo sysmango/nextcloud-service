@@ -1,0 +1,77 @@
+---
+# Cleanup tasks for Helm-based NextCloud deployment
+
+- name: Cleanup | Remove Traefik IngressRoute
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: traefik.io/v1alpha1
+      kind: IngressRoute
+      metadata:
+        name: nextcloud-ingress
+        namespace: "{{ nextcloud_namespace }}"
+
+- name: Cleanup | Uninstall NextCloud Helm release
+  kubernetes.core.helm:
+    name: nextcloud
+    release_namespace: "{{ nextcloud_namespace }}"
+    state: absent
+    wait: true
+
+- name: Cleanup | Remove database secret
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: nextcloud-db-secret
+        namespace: "{{ nextcloud_namespace }}"
+
+- name: Cleanup | Remove admin secret
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: nextcloud-admin-secret
+        namespace: "{{ nextcloud_namespace }}"
+
+- name: Cleanup | Remove PVCs
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: "{{ item }}"
+        namespace: "{{ nextcloud_namespace }}"
+  loop:
+    - nextcloud-html-pvc
+    - nextcloud-config-pvc
+    - nextcloud-data-pvc
+    - nextcloud-custom-apps-pvc
+
+- name: Cleanup | Remove PVs
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: "{{ item }}"
+  loop:
+    - "nextcloud-html-pv-{{ env }}"
+    - "nextcloud-config-pv-{{ env }}"
+    - "nextcloud-data-pv-{{ env }}"
+    - "nextcloud-custom-apps-pv-{{ env }}"
+
+- name: Cleanup | Remove Namespace (last)
+  kubernetes.core.k8s:
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ nextcloud_namespace }}"

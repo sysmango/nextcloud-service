@@ -1,0 +1,203 @@
+## NextCloud Helm Values Template for SysMango Infrastructure
+## Integrates with Vault, NFS, CA certificates, and Traefik
+
+nextcloud:
+  host: {{ nextcloud_hostname }}
+  existingSecret:
+    enabled: true
+    secretName: nextcloud-admin-secret
+    usernameKey: nextcloud-username
+    passwordKey: nextcloud-password
+  
+  # External PostgreSQL configuration
+  externalDatabase:
+    enabled: true
+    type: postgresql
+    host: {{ nextcloud_db_connection.split(':')[0] }}
+    port: {{ nextcloud_db_connection.split(':')[1] | default('5432') }}
+    database: {{ nextcloud_database }}
+    existingSecret:
+      enabled: true
+      secretName: nextcloud-db-secret
+      usernameKey: db-username
+      passwordKey: db-password
+
+  # PHP configuration for better performance
+  phpConfigs:
+    uploadLimit.ini: |
+      upload_max_filesize = 16G
+      post_max_size = 16G
+      max_input_time = 3600
+      max_execution_time = 3600
+      memory_limit = 1G
+    www.conf: |
+      [www]
+      pm.max_children = 120
+      pm.start_servers = 12
+      pm.min_spare_servers = 6
+      pm.max_spare_servers = 18
+
+  # Additional environment variables
+  extraEnv:
+    - name: NEXTCLOUD_UPDATE
+      value: "1"
+    - name: NEXTCLOUD_INIT_HTACCESS
+      value: "true"
+{% if enable_ca_certificates | default(true) %}
+    - name: SSL_CERT_FILE
+      value: "/etc/ssl/certs/ca-certificates.crt"
+    - name: CURL_CA_BUNDLE
+      value: "/etc/ssl/certs/ca-certificates.crt"
+{% endif %}
+
+# Image configuration
+image:
+  repository: {{ nextcloud_docker_image }}
+  tag: {{ nextcloud_docker_image_tag }}
+  pullPolicy: IfNotPresent
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+
+# Disable built-in ingress (we use Traefik IngressRoute)
+ingress:
+  enabled: false
+
+# Persistence configuration using existing NFS PVCs
+persistence:
+  enabled: true
+  nextcloudData:
+    enabled: true
+    existingClaim: nextcloud-data-pvc
+  nextcloudHtml:
+    enabled: true  
+    existingClaim: nextcloud-html-pvc
+  nextcloudConfig:
+    enabled: true
+    existingClaim: nextcloud-config-pvc
+
+# Resource configuration
+resources:
+  requests:
+    cpu: {{ nextcloud_resources.requests.cpu }}
+    memory: {{ nextcloud_resources.requests.memory }}
+  limits:
+    cpu: {{ nextcloud_resources.limits.cpu }}
+    memory: {{ nextcloud_resources.limits.memory }}
+
+# Security context
+securityContext:
+  runAsUser: 33
+  runAsGroup: 33
+  fsGroup: 33
+  fsGroupChangePolicy: OnRootMismatch
+
+podSecurityContext:
+  runAsUser: 33
+  runAsGroup: 33
+  fsGroup: 33
+
+# Probes configuration
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+
+# Replica count
+replicaCount: {{ nextcloud_replicas }}
+
+# Disable internal database
+internalDatabase:
+  enabled: false
+
+postgresql:
+  enabled: false
+
+redis:
+  enabled: false
+
+# Cronjob for maintenance
+cronjob:
+  enabled: true
+  schedule: "*/15 * * * *"
+  failedJobsHistoryLimit: 5
+  successfulJobsHistoryLimit: 2
+
+# Metrics
+metrics:
+  enabled: false
+
+# NGINX (disabled for Apache image)
+nginx:
+  enabled: false
+
+{% if enable_ca_certificates | default(true) %}
+# CA Certificates integration
+extraInitContainers:
+  - name: ca-certificates-setup
+    image: debian:bullseye-slim
+    command:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        echo "Setting up CA certificates..."
+        
+        # Install ca-certificates package
+        apt-get update && apt-get install -y ca-certificates
+        mkdir -p /usr/local/share/ca-certificates/
+        
+        # Copy CA certificates to system location
+        cp /tmp/ca-certs/*.crt /usr/local/share/ca-certificates/
+        
+        # Update CA certificate store
+        update-ca-certificates
+        
+        # Copy updated CA bundle to shared volume
+        cp /etc/ssl/certs/ca-certificates.crt /shared-ca/ca-certificates.crt
+        
+        echo "CA certificates setup completed"
+    volumeMounts:
+      - name: ca-certificates
+        mountPath: /tmp/ca-certs
+        readOnly: true
+      - name: shared-ca-bundle
+        mountPath: /shared-ca
+    securityContext:
+      runAsUser: 0
+      runAsGroup: 0
+
+# Additional volumes for CA certificates
+extraVolumes:
+  - name: ca-certificates
+    configMap:
+      name: {{ ca_configmap_name }}
+      defaultMode: 0644
+  - name: shared-ca-bundle
+    emptyDir: {}
+
+# Additional volume mounts for main container
+extraVolumeMounts:
+  - name: shared-ca-bundle
+    mountPath: /etc/ssl/certs/ca-certificates.crt
+    subPath: ca-certificates.crt
+    readOnly: true
+{% endif %}

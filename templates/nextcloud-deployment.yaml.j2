@@ -1,0 +1,175 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud
+  namespace: {{ nextcloud_namespace }}
+  labels:
+    app: nextcloud
+spec:
+  replicas: {{ nextcloud_replicas | default(1) }}
+  strategy:
+    type: Recreate
+    rollingUpdate: null
+  selector:
+    matchLabels:
+      app: nextcloud
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+    spec:
+      securityContext:
+        runAsUser: {{ nextcloud_run_as_user | default(33) }}
+        runAsGroup: {{ nextcloud_run_as_group | default(33) }}
+        fsGroup: {{ nextcloud_fs_group | default(33) }}
+        fsGroupChangePolicy: OnRootMismatch
+{% if enable_ca_certificates | default(true) %}
+      initContainers:
+        - name: ca-certificates-setup
+          image: registry.sysmango.net/debian:bullseye-slim
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              echo "Setting up CA certificates..."
+              
+              # Install ca-certificates package and create directory
+              apt-get update && apt-get install -y ca-certificates
+              mkdir -p /usr/local/share/ca-certificates/
+              
+              # Copy CA certificates to the system location (if any provided)
+              if ls /tmp/ca-certs/*.crt >/dev/null 2>&1; then
+                cp /tmp/ca-certs/*.crt /usr/local/share/ca-certificates/
+              else
+                echo "No additional CA certs found in ConfigMap; continuing with system CAs."
+              fi
+              
+              # Update the CA certificate store
+              update-ca-certificates
+              
+              # Copy the updated CA bundle to shared volume for main container
+              cp /etc/ssl/certs/ca-certificates.crt /shared-ca/ca-certificates.crt
+              
+              echo "CA certificates setup completed"
+          volumeMounts:
+            - name: ca-certificates
+              mountPath: /tmp/ca-certs
+              readOnly: true
+            - name: shared-ca-bundle
+              mountPath: /shared-ca
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+{% endif %}
+      containers:
+        - name: nextcloud
+          image: "{{ nextcloud_docker_image }}:{{ nextcloud_docker_image_tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: nextcloud-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: nextcloud-config
+                  key: POSTGRES_HOST
+            - name: NEXTCLOUD_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-secret
+                  key: NEXTCLOUD_ADMIN_USER
+            - name: NEXTCLOUD_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-secret
+                  key: NEXTCLOUD_ADMIN_PASSWORD
+            - name: NEXTCLOUD_UPDATE
+              value: "1"
+            - name: NEXTCLOUD_INIT_HTACCESS
+              value: "true"
+            - name: NEXTCLOUD_TRUSTED_DOMAINS
+              value: "{{ nextcloud_hostname }} localhost 127.0.0.1"
+            - name: OVERWRITEPROTOCOL
+              value: "https"
+            - name: OVERWRITEHOST
+              value: "{{ nextcloud_hostname }}"
+            - name: OVERWRITECLIURL
+              value: "https://{{ nextcloud_hostname }}"
+{% if enable_ca_certificates | default(true) %}
+            - name: SSL_CERT_FILE
+              value: "/etc/ssl/certs/ca-certificates.crt"
+            - name: CURL_CA_BUNDLE
+              value: "/etc/ssl/certs/ca-certificates.crt"
+{% endif %}
+          readinessProbe:
+            httpGet:
+              path: /status.php
+              port: 80
+            initialDelaySeconds: 90
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /status.php
+              port: 80
+            initialDelaySeconds: 180
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: "{{ nextcloud_resources.requests.cpu | default('100m') }}"
+              memory: "{{ nextcloud_resources.requests.memory | default('512Mi') }}"
+            limits:
+              cpu: "{{ nextcloud_resources.limits.cpu | default('1000m') }}"
+              memory: "{{ nextcloud_resources.limits.memory | default('2Gi') }}"
+          volumeMounts:
+            - name: nextcloud-html
+              mountPath: /var/www/html
+            - name: nextcloud-config
+              mountPath: /var/www/html/config
+            - name: nextcloud-data
+              mountPath: /var/www/html/data
+            - name: nextcloud-custom-apps
+              mountPath: /var/www/html/custom_apps
+{% if enable_ca_certificates | default(true) %}
+            - name: shared-ca-bundle
+              mountPath: /etc/ssl/certs/ca-certificates.crt
+              subPath: ca-certificates.crt
+              readOnly: true
+{% endif %}
+      volumes:
+        - name: nextcloud-html
+          persistentVolumeClaim:
+            claimName: nextcloud-html-pvc
+        - name: nextcloud-config
+          persistentVolumeClaim:
+            claimName: nextcloud-config-pvc
+        - name: nextcloud-data
+          persistentVolumeClaim:
+            claimName: nextcloud-data-pvc
+        - name: nextcloud-custom-apps
+          persistentVolumeClaim:
+            claimName: nextcloud-custom-apps-pvc
+{% if enable_ca_certificates | default(true) %}
+        - name: ca-certificates
+          configMap:
+            name: "{{ ca_configmap_name }}"
+            defaultMode: 0644
+        - name: shared-ca-bundle
+          emptyDir: {}
+{% endif %}

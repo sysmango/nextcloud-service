@@ -1,26 +1,77 @@
 ---
 # defaults file for nextcloud-service
 
-# User for database connection
-nextcloud_db_user: nextcloud
+# K3s/Kubernetes Configuration
+nextcloud_namespace: nextcloud-prod
+nextcloud_replicas: 1
+env: prod
 
-# Password for database connection
-nextcloud_db_passwd: nextadmin
+# NextCloud Docker Image
+nextcloud_docker_image: registry.sysmango.net/nextcloud
+nextcloud_docker_image_tag: 31-apache
 
-# Database connection
-nextcould_db_connection: 'postgres:5432'
+# Database Configuration
+nextcloud_db_connection: 'postgresql.sysmango-data-prod:5432'
+create_nextcloud_db: true
 
-# Database to use
-nextcloud_database: nextcloud
+# NextCloud Vault Configuration
+nextcloud_vault_secret: sysmango/nextcloud-prod
+nextcloud_password_from_vault: true
 
-# Nextcloud admin user
-nextcloud_admin_user: nextcloud_admin_user
+# NextCloud Hostname for Ingress
+nextcloud_hostname: nextcloud.sysmango.net
 
-# Nextcloud admin passwd
-nextcloud_admin_passwd: 'changeme'
+# TLS Configuration
+enable_tls: true
+cert_resolver: vault-issuer
+# cert-manager integration (preferred when using Vault Issuer)
+enable_cert_manager: true
+certificate_secret_name: nextcloud-tls
+certificate_issuer_name: vault-issuer
+certificate_issuer_kind: ClusterIssuer
 
-# Nextcloud docker image
-nextcloud_docker_image: nextcloud
+# NFS Configuration
+nfs_server_host: files.sysmango.net
+nfs_dir_mode: '0755'
+nfs_data_dir_mode: '0775'
+nfs_dir_owner: '33'
+nfs_dir_group: '33'
+create_nfs_directories: false
 
-# Nextcloud docker image tag
-nextcloud_docker_image_tag: 18.0.4
+# NFS Paths
+nfs_nextcloud_html_path: /srv/nfs/prod/nextcloud/html
+nfs_nextcloud_config_path: /srv/nfs/prod/nextcloud/config
+nfs_nextcloud_data_path: /srv/nfs/prod/nextcloud/data
+nfs_nextcloud_custom_apps_path: /srv/nfs/prod/nextcloud/custom_apps
+
+# PVC Sizes
+nextcloud_html_pvc_size: 10Gi
+nextcloud_config_pvc_size: 1Gi
+nextcloud_data_pvc_size: 100Gi
+nextcloud_custom_apps_pvc_size: 5Gi
+
+# Resource Limits
+nextcloud_resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# Vault Configuration
+vault_addr: https://vault.sysmango.net:8200
+vault_namespace: ''
+pg_vault_secret: sysmango/postgresql-prod
+pg_vault_field: postgres_password
+pg_password_from_vault: true
+
+# PostgreSQL Connection
+postgres_host: postgresql.sysmango-data-prod  # Internal cluster hostname
+postgres_external_host: postgres.sysmango.net  # External hostname for Ansible tasks
+postgres_user: postgres
+
+# CA Certificate Configuration
+ca_configmap_name: sysmango-ca-certificates
+ca_configmap_namespace: nextcloud-prod
+enable_ca_certificates: true

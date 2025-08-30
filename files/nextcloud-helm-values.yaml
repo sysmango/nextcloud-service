@@ -1,0 +1,158 @@
+## NextCloud Helm Values for SysMango Infrastructure
+## Based on Virtono tutorial but adapted for existing infrastructure
+
+# NextCloud configuration
+nextcloud:
+  host: nextcloud.sysmango.net
+  username: admin
+  # Password will be set via secret
+  
+  # Use external PostgreSQL
+  externalDatabase:
+    enabled: true
+    type: postgresql
+    host: postgresql.sysmango-data-prod
+    port: 5432
+    database: nextcloud
+    # User and password will be set via secret
+
+  # Mail configuration (optional)
+  mail:
+    enabled: false
+
+  # PHP configuration
+  phpConfigs:
+    uploadLimit.ini: |
+      upload_max_filesize = 16G
+      post_max_size = 16G
+      max_input_time = 3600
+      max_execution_time = 3600
+    www.conf: |
+      [www]
+      pm.max_children = 120
+      pm.start_servers = 12
+      pm.min_spare_servers = 6
+      pm.max_spare_servers = 18
+
+# Image configuration
+image:
+  repository: registry.sysmango.net/nextcloud
+  tag: 31-apache
+  pullPolicy: IfNotPresent
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+
+# Ingress configuration - disabled since we'll use Traefik IngressRoute
+ingress:
+  enabled: false
+
+# Persistence configuration using NFS
+persistence:
+  enabled: true
+  
+  # NextCloud data
+  nextcloudData:
+    enabled: true
+    existingClaim: nextcloud-data-pvc
+    
+  # NextCloud HTML/app files
+  nextcloudHtml:
+    enabled: true
+    existingClaim: nextcloud-html-pvc
+    
+  # NextCloud config
+  nextcloudConfig:
+    enabled: true
+    existingClaim: nextcloud-config-pvc
+    
+  # Custom apps
+  nextcloudCustomApps:
+    enabled: true
+    existingClaim: nextcloud-custom-apps-pvc
+
+# Resource limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# Security context
+securityContext:
+  runAsUser: 33
+  runAsGroup: 33
+  fsGroup: 33
+  fsGroupChangePolicy: OnRootMismatch
+
+# Pod security context
+podSecurityContext:
+  runAsUser: 33
+  runAsGroup: 33
+  fsGroup: 33
+
+# Liveness and readiness probes
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+# Startup probe
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+  successThreshold: 1
+
+# Replica count
+replicaCount: 1
+
+# Node selector and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Internal database (disabled since using external PostgreSQL)
+internalDatabase:
+  enabled: false
+
+postgresql:
+  enabled: false
+
+redis:
+  enabled: false
+
+# Cronjob for NextCloud maintenance
+cronjob:
+  enabled: true
+  schedule: "*/15 * * * *"
+  annotations: {}
+  curlInsecure: false
+  failedJobsHistoryLimit: 5
+  successfulJobsHistoryLimit: 2
+  resources: {}
+
+# Metrics
+metrics:
+  enabled: false
+
+# NGINX (not used with Apache image)
+nginx:
+  enabled: false

@@ -1,0 +1,47 @@
+---
+# Preflight checks for NextCloud deployment
+
+# Check CA certificates if enabled
+- name: Preflight | Check CA ConfigMap exists (if CA certificates enabled)
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ ca_configmap_name }}"
+    namespace: "{{ ca_configmap_namespace }}"
+  register: ca_configmap_check
+  when: enable_ca_certificates | default(true)
+
+- name: Preflight | Assert CA ConfigMap exists (if CA certificates enabled)
+  ansible.builtin.assert:
+    that:
+      - (ca_configmap_check.resources | length) > 0
+    fail_msg: "CA ConfigMap {{ ca_configmap_name }} not found in {{ ca_configmap_namespace }}. Ensure ca-certificates role has been run."
+    success_msg: "CA ConfigMap found."
+  when: enable_ca_certificates | default(true)
+
+# Check Traefik CRDs
+- name: Preflight | Check Traefik IngressRoute CRD present
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: ingressroutes.traefik.io
+  register: traefik_ir_crd
+
+- name: Preflight | Assert required CRDs exist
+  ansible.builtin.assert:
+    that:
+      - (traefik_ir_crd.resources | length) > 0
+    fail_msg: "Required CRDs missing. Ensure Traefik v3 is installed (ingressroutes.traefik.io)."
+    success_msg: "All required CRDs are present."
+
+# Check NFS server connectivity
+- name: Preflight | Assert nfs_server_host is provided
+  ansible.builtin.assert:
+    that:
+      - (nfs_server_host | default('')) | length > 0
+    fail_msg: "nfs_server_host is not set. Provide the inventory host or IP of the NFS server."
+    success_msg: "nfs_server_host provided."
+
+- name: NFS | Verify connectivity to NFS server
+  ansible.builtin.ping:
+  delegate_to: "{{ nfs_server_host }}"
