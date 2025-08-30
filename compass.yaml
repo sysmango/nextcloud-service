@@ -1,0 +1,61 @@
+name: nextcloud-service
+slug: nextcloud-service
+id: 'ari:cloud:compass:006a6c35-95c8-4a9c-bf41-6f26f474ed02:component/d7b126b6-b701-47d8-937f-d80ce2357ad8/60ba3c46-db01-4dc8-958c-16f732ea2204'
+description: Nextcloud service deployed on K3s with NFS-backed PersistentVolumes and Traefik ingress. Uses PostgreSQL and shared CA trust via sysmango CA bundle.
+configVersion: 1
+typeId: SERVICE
+ownerId: 'ari:cloud:identity::team/og-27674967-b056-4c69-8039-47baa1cdb7e6'
+
+fields:
+  tier: 4
+  lifecycle: PRODUCTION
+  isMonorepoProject: false
+  languages:
+    - Ansible
+    - YAML
+    - Jinja2
+  frameworks:
+    - Ansible
+  domain: TODO:fill-in-domain
+  serviceUrl: TODO:fill-in-service-url  # e.g. https://nextcloud.example.com
+
+links:
+  - name: GitHub repository
+    type: REPOSITORY
+    url: 'https://github.com/sysmango/nextcloud-service'
+  - name: Service README
+    type: DOCUMENTATION
+    url: 'https://github.com/sysmango/nextcloud-service#readme'
+  - name: Runbook
+    type: RUNBOOK
+    url: 'https://github.com/sysmango/nextcloud-service/blob/main/docs/runbook.md'
+  - name: Architecture/Design
+    type: DOCUMENTATION
+    url: 'https://github.com/sysmango/nextcloud-service/blob/main/docs/architecture.md'
+  - name: CI/CD
+    type: PROJECT
+    url: 'https://github.com/sysmango/nextcloud-service/actions'
+  - name: On-call
+    type: ON_CALL
+    url: 'TODO:fill-in-oncall-url'
+  - name: Monitoring Dashboard
+    type: DASHBOARD
+    url: 'TODO:fill-in-dashboard-url'
+
+relationships:
+  # Add ARIs for dependencies when available
+  # DEPENDS_ON:
+  #   - 'ari:cloud:compass:...:component/<database-service-ari>'
+  #   - 'ari:cloud:compass:...:component/<ca-certificates-role-or-shared-cert-service-ari>'
+  #   - 'ari:cloud:compass:...:component/<traefik-or-ingress-controller-ari>'
+  # PRODUCES: []
+  # CONSUMES: []
+
+labels:
+  - 'language:ansible'
+  - 'language:yaml'
+  - 'language:jinja'
+  - 'platform:k3s'
+  - 'source:github'
+
+customFields: {}
