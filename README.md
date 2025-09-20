@@ -32,12 +32,20 @@ Role Variables
 * `nextcloud_database` - Database name (default: nextcloud)
 * `create_nextcloud_db` - Create database and user (default: true)
 
-### NFS Configuration
-* `nfs_server_host` - NFS server hostname/IP
-* `nfs_nextcloud_html_path` - NFS path for NextCloud HTML files
-* `nfs_nextcloud_config_path` - NFS path for NextCloud config
-* `nfs_nextcloud_data_path` - NFS path for NextCloud data
-* `nfs_nextcloud_custom_apps_path` - NFS path for custom apps
+### NFS Configuration (Nextcloud-isolated)
+* `nc_nfs_server_host` - NFS server hostname/IP
+* `nc_nfs_html_path` - NFS path for NextCloud HTML files
+* `nc_nfs_config_path` - NFS path for NextCloud config
+* `nc_nfs_data_path` - NFS path for NextCloud data
+* `nc_nfs_custom_apps_path` - NFS path for custom apps
+
+Additional options:
+* `nc_nfs_dir_owner` (default: `"33"`)
+* `nc_nfs_dir_group` (default: `"33"`)
+* `nc_nfs_dir_mode` (default: `"0755"`)
+* `nc_nfs_data_dir_mode` (default: `"0775"`)
+
+Migration note: legacy `nfs_*` variables continue to work via defaults fallback, but are deprecated for this role. Prefer `nc_nfs_*` to avoid cross-role overrides.
 
 ### Vault Configuration
 * `vault_addr` - Vault server URL

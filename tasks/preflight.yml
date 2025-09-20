@@ -35,13 +35,13 @@
     success_msg: "All required CRDs are present."
 
 # Check NFS server connectivity
-- name: Preflight | Assert nfs_server_host is provided
+- name: Preflight | Assert nc_nfs_server_host is provided
   ansible.builtin.assert:
     that:
-      - (nfs_server_host | default('')) | length > 0
+      - (nc_nfs_server_host | default('')) | length > 0
     fail_msg: "nfs_server_host is not set. Provide the inventory host or IP of the NFS server."
     success_msg: "nfs_server_host provided."
 
 - name: NFS | Verify connectivity to NFS server
   ansible.builtin.ping:
-  delegate_to: "{{ nfs_server_host }}"
+  delegate_to: "{{ nc_nfs_server_host }}"

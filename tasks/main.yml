@@ -100,68 +100,68 @@
   when: nextcloud_password_from_vault | default(true)
 
 # NFS preflight
-- name: Preflight | Assert nfs_server_host is provided
+- name: Preflight | Assert nc_nfs_server_host is provided
   ansible.builtin.assert:
     that:
-      - (nfs_server_host | default('')) | length > 0
+      - (nc_nfs_server_host | default('')) | length > 0
     fail_msg: "nfs_server_host is not set. Provide the inventory host or IP of the NFS server."
     success_msg: "nfs_server_host provided."
 
 - name: NFS | Verify connectivity to NFS server
   ansible.builtin.ping:
-  delegate_to: "{{ nfs_server_host }}"
+  delegate_to: "{{ nc_nfs_server_host }}"
 
 - name: NFS | Create NextCloud export directories on NFS server
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: "{{ nfs_dir_mode }}"
-    owner: "{{ nfs_dir_owner }}"
-    group: "{{ nfs_dir_group }}"
+    mode: "{{ nc_nfs_dir_mode }}"
+    owner: "{{ nc_nfs_dir_owner }}"
+    group: "{{ nc_nfs_dir_group }}"
     # Do not recurse here; active Nextcloud writes can create ephemeral files and cause race errors
-  delegate_to: "{{ nfs_server_host }}"
+  delegate_to: "{{ nc_nfs_server_host }}"
   become: true
   loop:
-    - "{{ nfs_nextcloud_html_path }}"
-    - "{{ nfs_nextcloud_config_path }}"
-    - "{{ nfs_nextcloud_data_path }}"
-    - "{{ nfs_nextcloud_custom_apps_path }}"
+    - "{{ nc_nfs_html_path }}"
+    - "{{ nc_nfs_config_path }}"
+    - "{{ nc_nfs_data_path }}"
+    - "{{ nc_nfs_custom_apps_path }}"
 
 - name: NFS | Create NextCloud export data directory on NFS server
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: "{{ nfs_data_dir_mode }}"
-    owner: "{{ nfs_dir_owner }}"
-    group: "{{ nfs_dir_group }}"
+    mode: "{{ nc_nfs_data_dir_mode }}"
+    owner: "{{ nc_nfs_dir_owner }}"
+    group: "{{ nc_nfs_dir_group }}"
     # Do not recurse here; active Nextcloud writes can create ephemeral files and cause race errors
-  delegate_to: "{{ nfs_server_host }}"
+  delegate_to: "{{ nc_nfs_server_host }}"
   become: true
   loop:
-    - "{{ nfs_nextcloud_data_path }}"
+    - "{{ nc_nfs_data_path }}"
 
 - name: NFS | Fix ownership on existing NextCloud files
   ansible.builtin.command: >
-    chown -R {{ nfs_dir_owner }}:{{ nfs_dir_group }} {{ item }}
-  delegate_to: "{{ nfs_server_host }}"
+    chown -R {{ nc_nfs_dir_owner }}:{{ nc_nfs_dir_group }} {{ item }}
+  delegate_to: "{{ nc_nfs_server_host }}"
   become: true
   loop:
-    - "{{ nfs_nextcloud_html_path }}"
-    - "{{ nfs_nextcloud_config_path }}"
-    - "{{ nfs_nextcloud_data_path }}"
-    - "{{ nfs_nextcloud_custom_apps_path }}"
+    - "{{ nc_nfs_html_path }}"
+    - "{{ nc_nfs_config_path }}"
+    - "{{ nc_nfs_data_path }}"
+    - "{{ nc_nfs_custom_apps_path }}"
   changed_when: true
 
 - name: NFS | Fix directory permissions for NextCloud
   ansible.builtin.command: >
     find {{ item }} -type d -exec chmod 775 {} \;
-  delegate_to: "{{ nfs_server_host }}"
+  delegate_to: "{{ nc_nfs_server_host }}"
   become: true
   loop:
-    - "{{ nfs_nextcloud_html_path }}"
-    - "{{ nfs_nextcloud_config_path }}"
-    - "{{ nfs_nextcloud_data_path }}"
-    - "{{ nfs_nextcloud_custom_apps_path }}"
+    - "{{ nc_nfs_html_path }}"
+    - "{{ nc_nfs_config_path }}"
+    - "{{ nc_nfs_data_path }}"
+    - "{{ nc_nfs_custom_apps_path }}"
   changed_when: true
 
 # Database setup (if enabled)

@@ -93,17 +93,17 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: "{{ nfs_dir_mode }}"
-    owner: "{{ nfs_dir_owner }}"
-    group: "{{ nfs_dir_group }}"
+    mode: "{{ nc_nfs_dir_mode }}"
+    owner: "{{ nc_nfs_dir_owner }}"
+    group: "{{ nc_nfs_dir_group }}"
     recurse: true
-  delegate_to: "{{ nfs_server_host }}"
+  delegate_to: "{{ nc_nfs_server_host }}"
   become: true
   loop:
-    - "{{ nfs_nextcloud_html_path }}"
-    - "{{ nfs_nextcloud_config_path }}"
-    - "{{ nfs_nextcloud_data_path }}"
-    - "{{ nfs_nextcloud_custom_apps_path }}"
+    - "{{ nc_nfs_html_path }}"
+    - "{{ nc_nfs_config_path }}"
+    - "{{ nc_nfs_data_path }}"
+    - "{{ nc_nfs_custom_apps_path }}"
   when: create_nfs_directories | default(false)
 
 # Create NFS PVs and PVCs

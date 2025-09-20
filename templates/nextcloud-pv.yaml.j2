@@ -10,8 +10,8 @@ spec:
   accessModes: ["ReadWriteMany"]
   persistentVolumeReclaimPolicy: Retain
   nfs:
-    server: "{{ nfs_server_host }}"
-    path: "{{ nfs_nextcloud_html_path }}"
+    server: "{{ nc_nfs_server_host }}"
+    path: "{{ nc_nfs_html_path }}"
   mountOptions: ["nfsvers=4.1"]
 
 ---
@@ -27,8 +27,8 @@ spec:
   accessModes: ["ReadWriteMany"]
   persistentVolumeReclaimPolicy: Retain
   nfs:
-    server: "{{ nfs_server_host }}"
-    path: "{{ nfs_nextcloud_config_path }}"
+    server: "{{ nc_nfs_server_host }}"
+    path: "{{ nc_nfs_config_path }}"
   mountOptions: ["nfsvers=4.1"]
 
 ---
@@ -44,8 +44,8 @@ spec:
   accessModes: ["ReadWriteMany"]
   persistentVolumeReclaimPolicy: Retain
   nfs:
-    server: "{{ nfs_server_host }}"
-    path: "{{ nfs_nextcloud_data_path }}"
+    server: "{{ nc_nfs_server_host }}"
+    path: "{{ nc_nfs_data_path }}"
   mountOptions: ["nfsvers=4.1"]
 
 ---
@@ -61,6 +61,6 @@ spec:
   accessModes: ["ReadWriteMany"]
   persistentVolumeReclaimPolicy: Retain
   nfs:
-    server: "{{ nfs_server_host }}"
-    path: "{{ nfs_nextcloud_custom_apps_path }}"
+    server: "{{ nc_nfs_server_host }}"
+    path: "{{ nc_nfs_custom_apps_path }}"
   mountOptions: ["nfsvers=4.1"]

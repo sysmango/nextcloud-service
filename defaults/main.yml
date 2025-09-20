@@ -30,19 +30,21 @@ certificate_secret_name: nextcloud-tls
 certificate_issuer_name: vault-issuer
 certificate_issuer_kind: ClusterIssuer
 
-# NFS Configuration
-nfs_server_host: files.sysmango.net
-nfs_dir_mode: '0755'
-nfs_data_dir_mode: '0775'
-nfs_dir_owner: '33'
-nfs_dir_group: '33'
+# NFS Configuration (Nextcloud-specific isolated namespace)
+# Backward-compat: if legacy nfs_* overrides exist in inventory, honor them.
+nc_nfs_server_host: "{{ nfs_server_host | default('files.sysmango.net') }}"
+nc_nfs_dir_mode: "{{ nfs_dir_mode | default('0755') }}"
+nc_nfs_data_dir_mode: "{{ nfs_data_dir_mode | default('0775') }}"
+nc_nfs_dir_owner: "33"
+nc_nfs_dir_group: "33"
 create_nfs_directories: false
 
-# NFS Paths
-nfs_nextcloud_html_path: /srv/nfs/prod/nextcloud/html
-nfs_nextcloud_config_path: /srv/nfs/prod/nextcloud/config
-nfs_nextcloud_data_path: /srv/nfs/prod/nextcloud/data
-nfs_nextcloud_custom_apps_path: /srv/nfs/prod/nextcloud/custom_apps
+# NFS Paths (Nextcloud-specific isolated namespace)
+# Backward-compat with legacy nfs_nextcloud_* overrides
+nc_nfs_html_path: "{{ nfs_nextcloud_html_path | default('/srv/nfs/prod/nextcloud/html') }}"
+nc_nfs_config_path: "{{ nfs_nextcloud_config_path | default('/srv/nfs/prod/nextcloud/config') }}"
+nc_nfs_data_path: "{{ nfs_nextcloud_data_path | default('/srv/nfs/prod/nextcloud/data') }}"
+nc_nfs_custom_apps_path: "{{ nfs_nextcloud_custom_apps_path | default('/srv/nfs/prod/nextcloud/custom_apps') }}"
 
 # PVC Sizes
 nextcloud_html_pvc_size: 10Gi

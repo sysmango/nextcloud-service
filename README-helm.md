@@ -58,7 +58,7 @@ The Helm deployment uses the same variables as the traditional deployment:
 ### Required Variables
 
 - `nextcloud_hostname`: Domain name for NextCloud
-- `nfs_server_host`: NFS server hostname/IP
+- `nc_nfs_server_host`: NFS server hostname/IP
 - `vault_addr`: Vault server URL
 - `nextcloud_vault_secret`: Vault secret path for NextCloud credentials
 - `pg_vault_secret`: Vault secret path for PostgreSQL credentials
@@ -69,6 +69,11 @@ The Helm deployment uses the same variables as the traditional deployment:
 - `nextcloud_replicas`: Number of replicas (default: `1`)
 - `enable_ca_certificates`: Enable CA certificate integration (default: `true`)
 - `create_nextcloud_db`: Create database and user (default: `true`)
+- `nc_nfs_html_path`, `nc_nfs_config_path`, `nc_nfs_data_path`, `nc_nfs_custom_apps_path`
+- `nc_nfs_dir_owner` (default: `"33"`), `nc_nfs_dir_group` (default: `"33"`)
+- `nc_nfs_dir_mode` (default: `"0755"`), `nc_nfs_data_dir_mode` (default: `"0775"`)
+
+Migration note: legacy `nfs_*` variables are still honored via defaults for backward compatibility, but are deprecated in favor of `nc_nfs_*` to prevent cross-role overrides.
 
 ## Deployment Process
 
